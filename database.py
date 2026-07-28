@@ -40,6 +40,19 @@ def add_user(user_id, full_name, department=None, role=None):
     conn.commit()
     conn.close()
 
+def get_user_role(user_id):
+    conn = sqlite3.connect('attendance.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT role, is_blocked FROM users WHERE user_id = ?', (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        role, is_blocked = row
+        if is_blocked == 1:
+            return "BLOCKED"
+        return role
+    return None
+
 def get_user_info(user_id):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
