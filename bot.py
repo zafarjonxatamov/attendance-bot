@@ -6,11 +6,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from database import init_db, add_user, save_attendance, get_user_role, update_user_role
 from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
-# Rol tugmalari
+# Rol tugmalari (ikonalar bilan)
 ROLE_BUTTONS = [
-    [KeyboardButton("Rahbariyat"), KeyboardButton("Bo'lim xodimi")],
-    [KeyboardButton("Fakultet dekani"), KeyboardButton("Kafedra mudiri")],
-    [KeyboardButton("Kafedra o'qituvchisi"), KeyboardButton("Ishchi xodim")],
+    [KeyboardButton("🏛 Rahbariyat"), KeyboardButton("📋 Bo'lim xodimi")],
+    [KeyboardButton("🎓 Fakultet dekani"), KeyboardButton("📚 Kafedra mudiri")],
+    [KeyboardButton("👨‍🏫 Kafedra o'qituvchisi"), KeyboardButton("🛠 Ishchi xodim")],
     [KeyboardButton("🔙 Orqaga")]
 ]
 
@@ -60,13 +60,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Bosh menyuga qaytdingiz. Iltimos, lavozimingizni qayta tanlang:", reply_markup=reply_markup)
         return
 
-    roles = ["Rahbariyat", "Bo'lim xodimi", "Fakultet dekani", "Kafedra mudiri", "Kafedra o'qituvchisi", "Ishchi xodim"]
-    if text in roles:
-        add_user(user_id, user.full_name, text)
-        update_user_role(user_id, text)
+    # Rol nomlarini ikonalarsiz ham qabul qilishi uchun toza nomlarni solishtiramiz
+    role_mapping = {
+        "🏛 Rahbariyat": "Rahbariyat",
+        "📋 Bo'lim xodimi": "Bo'lim xodimi",
+        "🎓 Fakultet dekani": "Fakultet dekani",
+        "📚 Kafedra mudiri": "Kafedra mudiri",
+        "👨‍🏫 Kafedra o'qituvchisi": "Kafedra o'qituvchisi",
+        "🛠 Ishchi xodim": "Ishchi xodim"
+    }
+    
+    if text in role_mapping:
+        clean_role = role_mapping[text]
+        add_user(user_id, user.full_name, clean_role)
+        update_user_role(user_id, clean_role)
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            f"Lavozimingiz muvaffaqiyatli saqlandi: *{text}*.\nEndi davomat qilish uchun quyidagi tugmani bosing:",
+            f"Lavozimingiz muvaffaqiyatli saqlandi: *{clean_role}*.\nEndi davomat qilish uchun quyidagi tugmani bosing:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
