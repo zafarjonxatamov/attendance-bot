@@ -83,10 +83,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💼 Lavozim: {user_role}\n"
             f"⏰ Vaqt: {current_time_str}"
         )
+    
         try:
             await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+            print(f"Admini ({ADMIN_ID}) ga xabar muvaffaqiyatli yuborildi.")
         except Exception as e:
-            print(f"Adminga yuborishda xatolik: {e}")
+            print(f"⚠️ Adminga xabar yuborishda xatolik yuz berdi: {e}")
         return
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
