@@ -23,7 +23,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # Bloklanganligini tekshirish
     role_status = get_user_role(user_id)
     if role_status == "BLOCKED":
         await update.message.reply_text("⛔ Siz admin tomonidan botdan bloklangansiz!")
@@ -53,7 +52,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# Admin uchun foydalanuvchini bloklash buyrug'i: /block F_ID
 async def block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Bu buyruq faqat admin uchun!")
@@ -70,7 +68,6 @@ async def block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Xatolik: {e}")
 
-# Admin uchun foydalanuvchini blokdan chiqarish buyrug'i: /unblock F_ID
 async def unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Bu buyruq faqat admin uchun!")
@@ -190,36 +187,38 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_time_str = now.strftime("%H:%M:%S")
     dist_str = f"{distance:.2f} metr" if distance < 1000 else f"{distance / 1000:.2f} km"
 
+    # Agar masofa 1000 metrdan (1001 va undan naridan) oshsa, lokatsiya qabul qilinmaydi
     if distance > ALLOWED_DISTANCE:
         await update.message.reply_text(
-            f"❌ Siz ish joyidan uzoqdasiz!\n"
+            f"❌ Siz belgilangan chegaradan tashqaridasiz!\n"
             f"Masofa: {dist_str}\n"
-            f"Ruxsat etilgan hududdan tashqaridasiz."
+            f"Ruxsat etilgan maksimal masofa: 1000 metr. Lokatsiyangiz qabul qilmadi!"
         )
+        return
+
+    limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
+    status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
+
+    save_attendance(user_id, full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
+    
+    if status == "Kechikdi":
+        await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
     else:
-        limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
-        status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
+        await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
 
-        save_attendance(user_id, full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
-        
-        if status == "Kechikdi":
-            await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
-        else:
-            await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
-
-        admin_text = (
-            f"📌 **Xodim ishga keldi:**\n"
-            f"👤 Ism: {full_name}\n"
-            f"🆔 ID: `{user_id}`\n"
-            f"💼 Lavozim: {user_role}\n"
-            f"⏰ Vaqt: {current_time_str}\n"
-            f"📊 Holati: {status}\n"
-            f"📍 Masofa: {dist_str}"
-        )
-        try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Adminga yuborishda xatolik: {e}")
+    admin_text = (
+        f"📌 **Xodim ishga keldi:**\n"
+        f"👤 Ism: {full_name}\n"
+        f"🆔 ID: `{user_id}`\n"
+        f"💼 Lavozim: {user_role}\n"
+        f"⏰ Vaqt: {current_time_str}\n"
+        f"📊 Holati: {status}\n"
+        f"📍 Masofa: {dist_str}"
+    )
+    try:
+        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Adminga yuborishda xatolik: {e}")
 
 if __name__ == '__main__':
     init_db()
@@ -231,5 +230,5 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
-    print("Bot ishga tushdi...")
+    print("Test bot ishga tushdi...")
     app.run_polling()
