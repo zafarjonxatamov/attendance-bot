@@ -4,7 +4,7 @@ from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 from database import init_db, add_user, save_attendance, get_user_role, update_user_role
-from config import TELEGRAM_TOKEN, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
+from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
 # Rol tugmalari
 ROLE_BUTTONS = [
@@ -25,9 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    # Bazada foydalanuvchi bor-yo'qligini tekshirish va qo'shish
     add_user(user_id, user.full_name, None)
-    
     user_role = get_user_role(user_id)
     
     if not user_role:
@@ -55,7 +53,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Bosh menyuga qaytdingiz. Iltimos, lavozimingizni qayta tanlang:", reply_markup=reply_markup)
         return
 
-    # Rol tanlash jarayoni
     roles = ["Rahbariyat", "Bo'lim xodimi", "Fakultet dekani", "Kafedra mudiri", "Kafedra o'qituvchisi", "Ishchi xodim"]
     if text in roles:
         add_user(user_id, user.full_name, text)
@@ -69,7 +66,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🚪 Ishdan ketdim":
-        await update.message.reply_text("Ishdan ketgan vaqtingiz qayd etildi. Xayr!")
+        user_role = get_user_role(user_id) or "Noma'lum"
+        now = datetime.now()
+        current_time_str = now.strftime("%H:%M:%S")
+        
+        # Bazaga saqlash
+        save_attendance(user_id, user.full_name, user_role, "Ishdan ketdi", current_time_str, "Ketdi", "N/A")
+        
+        # Xodimga javob
+        await update.message.reply_text(f"🚪 Ishdan ketgan vaqtingiz qayd etildi: {current_time_str}. Xayr!")
+        
+        # Adminga xabar yuborish
+        admin_text = (
+            f"🚪 **Xodim ishdan ketdi:**\n"
+            f"👤 Ism: {user.full_name}\n"
+            f"💼 Lavozim: {user_role}\n"
+            f"⏰ Vaqt: {current_time_str}"
+        )
+        try:
+            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+        except Exception as e:
+            print(f"Adminga yuborishda xatolik: {e}")
         return
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -77,21 +94,20 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_role = get_user_role(user_id)
     
-    # Agar rol topilmasa, xavfsizlik uchun default rol beramiz
     if not user_role:
         user_role = "Bo'lim xodimi"
         add_user(user_id, user.full_name, user_role)
 
     user_location = update.message.location
     if not user_location:
-        await update.message.reply_text("Iltimos, haqiqiy geolokatsiya yuboring (telefon orqali sinab ko'ring).")
+        await update.message.reply_text("Iltimos, haqiqiy geolokatsiya yuboring.")
         return
 
     lat2 = user_location.latitude
     lon2 = user_location.longitude
 
     # Masofani hisoblash (Haversine formulasi)
-    R = 6371000  # Metrda Yer radiusi
+    R = 6371000
     phi1 = math.radians(OFFICE_LAT)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - OFFICE_LAT)
@@ -99,11 +115,10 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     a = math.sin(delta_phi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    distance = R * c  # Metrda
+    distance = R * c
 
     now = datetime.now()
     current_time_str = now.strftime("%H:%M:%S")
-    
     dist_str = f"{distance:.2f} metr" if distance < 1000 else f"{distance / 1000:.2f} km"
 
     if distance > ALLOWED_DISTANCE:
@@ -116,21 +131,26 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
         status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
 
-        save_attendance(user_id, user.full_name, user_role, current_time_str, status, dist_str)
+        save_attendance(user_id, user.full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
         
         if status == "Kechikdi":
             await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
         else:
             await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
 
-        await update.message.reply_text(
-            f"📌 Xodim ishga keldi:\n"
+        # Adminga xabar yuborish
+        admin_text = (
+            f"📌 **Xodim ishga keldi:**\n"
             f"👤 Ism: {user.full_name}\n"
             f"💼 Lavozim: {user_role}\n"
             f"⏰ Vaqt: {current_time_str}\n"
             f"📊 Holati: {status}\n"
             f"📍 Masofa: {dist_str}"
         )
+        try:
+            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+        except Exception as e:
+            print(f"Adminga yuborishda xatolik: {e}")
 
 if __name__ == '__main__':
     init_db()
