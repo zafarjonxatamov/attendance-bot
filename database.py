@@ -7,7 +7,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             full_name TEXT,
-            role TEXT
+            role TEXT,
+            is_blocked INTEGER DEFAULT 0
         )
     ''')
     cursor.execute('''
@@ -29,8 +30,8 @@ def add_user(user_id, full_name, role=None):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT OR IGNORE INTO users (user_id, full_name, role)
-        VALUES (?, ?, ?)
+        INSERT OR IGNORE INTO users (user_id, full_name, role, is_blocked)
+        VALUES (?, ?, ?, 0)
     ''', (user_id, full_name, role))
     if role:
         cursor.execute('UPDATE users SET role = ?, full_name = ? WHERE user_id = ?', (role, full_name, user_id))
@@ -40,15 +41,28 @@ def add_user(user_id, full_name, role=None):
 def get_user_role(user_id):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT role FROM users WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT role, is_blocked FROM users WHERE user_id = ?', (user_id,))
     row = cursor.fetchone()
     conn.close()
-    return row[0] if row and row[0] else None
+    if row:
+        role, is_blocked = row
+        if is_blocked == 1:
+            return "BLOCKED"
+        return role
+    return None
 
 def update_user_role(user_id, role):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
     cursor.execute('UPDATE users SET role = ? WHERE user_id = ?', (role, user_id))
+    conn.commit()
+    conn.close()
+
+def set_user_block_status(user_id, status):
+    # status: 1 - bloklash, 0 - blokdan chiqarish
+    conn = sqlite3.connect('attendance.db')
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_blocked = ? WHERE user_id = ?', (status, user_id))
     conn.commit()
     conn.close()
 
