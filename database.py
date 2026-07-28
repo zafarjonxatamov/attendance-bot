@@ -3,7 +3,6 @@ import sqlite3
 def init_db():
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
-    # Foydalanuvchilar jadvali (rol ustuni bilan)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -11,7 +10,6 @@ def init_db():
             role TEXT
         )
     ''')
-    # Davomat jadvali
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,6 +31,9 @@ def add_user(user_id, full_name, role=None):
         INSERT OR IGNORE INTO users (user_id, full_name, role)
         VALUES (?, ?, ?)
     ''', (user_id, full_name, role))
+    # Agar foydalanuvchi oldin bo'lsa va rol yuborilgan bo'lsa yangilash
+    if role:
+        cursor.execute('UPDATE users SET role = ?, full_name = ? WHERE user_id = ?', (role, full_name, user_id))
     conn.commit()
     conn.close()
 
@@ -47,9 +48,7 @@ def get_user_role(user_id):
 def update_user_role(user_id, role):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        UPDATE users SET role = ? WHERE user_id = ?
-    ''', (role, user_id))
+    cursor.execute('UPDATE users SET role = ? WHERE user_id = ?', (role, user_id))
     conn.commit()
     conn.close()
 
