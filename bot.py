@@ -1,7 +1,7 @@
 import os
 import math
 from datetime import datetime
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 from database import init_db, add_user, save_attendance, get_user_role, update_user_role
 from config import TELEGRAM_TOKEN, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
@@ -22,7 +22,12 @@ ATTENDANCE_BUTTONS = [
 ]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
+    
+    # Bazada foydalanuvchi bor-yo'qligini tekshirish va qo'shish
+    add_user(user_id, user.full_name, None)
+    
     user_role = get_user_role(user_id)
     
     if not user_role:
@@ -41,10 +46,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
     
     if text == "🔙 Orqaga":
-        # Orqaga bosilganda bosh menyuga yoki rol tanlashga qaytarish
         update_user_role(user_id, None)
         reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text("Bosh menyuga qaytdingiz. Iltimos, lavozimingizni qayta tanlang:", reply_markup=reply_markup)
@@ -53,6 +58,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Rol tanlash jarayoni
     roles = ["Rahbariyat", "Bo'lim xodimi", "Fakultet dekani", "Kafedra mudiri", "Kafedra o'qituvchisi", "Ishchi xodim"]
     if text in roles:
+        add_user(user_id, user.full_name, text)
         update_user_role(user_id, text)
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
@@ -71,12 +77,16 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_role = get_user_role(user_id)
     
+    # Agar rol topilmasa, xavfsizlik uchun default rol beramiz
     if not user_role:
-        reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
-        await update.message.reply_text("Avval o'z lavozimingizni tanlang!", reply_markup=reply_markup)
-        return
+        user_role = "Bo'lim xodimi"
+        add_user(user_id, user.full_name, user_role)
 
     user_location = update.message.location
+    if not user_location:
+        await update.message.reply_text("Iltimos, haqiqiy geolokatsiya yuboring (telefon orqali sinab ko'ring).")
+        return
+
     lat2 = user_location.latitude
     lon2 = user_location.longitude
 
@@ -94,7 +104,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now()
     current_time_str = now.strftime("%H:%M:%S")
     
-    # Masofani km yoki metrda ko'rsatish
     dist_str = f"{distance:.2f} metr" if distance < 1000 else f"{distance / 1000:.2f} km"
 
     if distance > ALLOWED_DISTANCE:
@@ -104,7 +113,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Ruxsat etilgan hududdan tashqaridasiz."
         )
     else:
-        # Vaqtni tekshirish (masalan, 08:30 dan kech qolganini aniqlash)
         limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
         status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
 
