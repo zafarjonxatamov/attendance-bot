@@ -28,16 +28,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(user_id, user.full_name, None)
     user_role = get_user_role(user_id)
     
+    welcome_text = (
+        "Assalomu alaykum hurmatli xodim, "
+        "men sizning bugundan boshlab ishga kelish va ketish vaqtingizni aniqlab turuvchi yordamchingizman. "
+        "Kuningiz hayrli, ishingiz barokotli o'tsin. "
+        "Marhamat qilib kerakli bo'limni tanlang va davom eting"
+    )
+    
     if not user_role:
         reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            "Assalomu alaykum! Davomat botiga xush kelibsiz.\nIltimos, o'z lavozimingizni tanlang:",
+            f"{welcome_text}\n\nIltimos, o'z lavozimingizni tanlang:",
             reply_markup=reply_markup
         )
     else:
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            f"Sizning lavozimingiz: *{user_role}*.\nKerakli amalni tanlang:",
+            f"{welcome_text}\n\nSizning lavozimingiz: *{user_role}*.\nKerakli amalni tanlang:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -91,7 +98,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     full_name = user.full_name if user.full_name else ""
     
-    # Ism va familiya to'liqligini tekshirish (kamida 2 ta so'z bo'lishi kerak)
     name_parts = full_name.split()
     if len(name_parts) < 2:
         await update.message.reply_text(
@@ -115,7 +121,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lat2 = user_location.latitude
     lon2 = user_location.longitude
 
-    # Masofani hisoblash (Haversine formulasi)
     R = 6371000
     phi1 = math.radians(OFFICE_LAT)
     phi2 = math.radians(lat2)
