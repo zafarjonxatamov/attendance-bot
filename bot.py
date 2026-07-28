@@ -70,35 +70,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         now = datetime.now()
         current_time_str = now.strftime("%H:%M:%S")
         
-        # Bazaga saqlash
         save_attendance(user_id, user.full_name, user_role, "Ishdan ketdi", current_time_str, "Ketdi", "N/A")
         
-        # Xodimga javob
         await update.message.reply_text(f"🚪 Ishdan ketgan vaqtingiz qayd etildi: {current_time_str}. Xayr!")
         
-        # Adminga xabar yuborish
         admin_text = (
             f"🚪 **Xodim ishdan ketdi:**\n"
             f"👤 Ism: {user.full_name}\n"
             f"💼 Lavozim: {user_role}\n"
             f"⏰ Vaqt: {current_time_str}"
         )
-    
         try:
             await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
-            print(f"Admini ({ADMIN_ID}) ga xabar muvaffaqiyatli yuborildi.")
         except Exception as e:
-            print(f"⚠️ Adminga xabar yuborishda xatolik yuz berdi: {e}")
+            print(f"Adminga yuborishda xatolik: {e}")
         return
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-    user_role = get_user_role(user_id)
+    full_name = user.full_name if user.full_name else ""
     
+    # Ism va familiya to'liqligini tekshirish (kamida 2 ta so'z bo'lishi kerak)
+    name_parts = full_name.split()
+    if len(name_parts) < 2:
+        await update.message.reply_text(
+            "⚠️ Diqqat! Telegram profilingizda ism va familiyangiz to'liq ko'rsatilmagan.\n"
+            "Iltimos, avval Telegram profilingiz nomini *Ism va Familiya* ko'rinishiga o'zgartiring, "
+            "so'ngra qaytadan lokatsiya yuboring!",
+            parse_mode="Markdown"
+        )
+        return
+
+    user_role = get_user_role(user_id)
     if not user_role:
         user_role = "Bo'lim xodimi"
-        add_user(user_id, user.full_name, user_role)
+        add_user(user_id, full_name, user_role)
 
     user_location = update.message.location
     if not user_location:
@@ -133,17 +140,16 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
         status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
 
-        save_attendance(user_id, user.full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
+        save_attendance(user_id, full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
         
         if status == "Kechikdi":
             await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
         else:
             await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
 
-        # Adminga xabar yuborish
         admin_text = (
             f"📌 **Xodim ishga keldi:**\n"
-            f"👤 Ism: {user.full_name}\n"
+            f"👤 Ism: {full_name}\n"
             f"💼 Lavozim: {user_role}\n"
             f"⏰ Vaqt: {current_time_str}\n"
             f"📊 Holati: {status}\n"
