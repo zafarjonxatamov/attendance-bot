@@ -5,5 +5,5 @@ ADMIN_ID = 1819574194  # Sizning Telegram ID raqamingiz
 OFFICE_LAT = 40.5333
 OFFICE_LON = 70.9333
 
-# Ruxsat etilgan masofa aniq 1000 metr (1 km) qilib belgilandi
+# Ruxsat etilgan maksimal masofa (1000 metr / 1 km)
 ALLOWED_DISTANCE = 1000
