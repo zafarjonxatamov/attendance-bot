@@ -4,5 +4,6 @@ ADMIN_ID = 1819574194  # Sizning Telegram ID raqamingiz
 # Korxona koordinatalari
 OFFICE_LAT = 40.5333
 OFFICE_LON = 70.9333
-MAX_DISTANCE_KM = 2.0
-ALLOWED_DISTANCE = int(MAX_DISTANCE_KM * 1000)
+
+# Ruxsat etilgan masofa aniq 1000 metr (1 km) qilib belgilandi
+ALLOWED_DISTANCE = 1000
