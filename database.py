@@ -16,6 +16,7 @@ def init_db():
             user_id INTEGER,
             full_name TEXT,
             role TEXT,
+            action TEXT,
             time TEXT,
             status TEXT,
             distance TEXT
@@ -31,7 +32,6 @@ def add_user(user_id, full_name, role=None):
         INSERT OR IGNORE INTO users (user_id, full_name, role)
         VALUES (?, ?, ?)
     ''', (user_id, full_name, role))
-    # Agar foydalanuvchi oldin bo'lsa va rol yuborilgan bo'lsa yangilash
     if role:
         cursor.execute('UPDATE users SET role = ?, full_name = ? WHERE user_id = ?', (role, full_name, user_id))
     conn.commit()
@@ -52,12 +52,12 @@ def update_user_role(user_id, role):
     conn.commit()
     conn.close()
 
-def save_attendance(user_id, full_name, role, time, status, distance):
+def save_attendance(user_id, full_name, role, action, time, status, distance):
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO attendance (user_id, full_name, role, time, status, distance)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, full_name, role, time, status, distance))
+        INSERT INTO attendance (user_id, full_name, role, action, time, status, distance)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, full_name, role, action, time, status, distance))
     conn.commit()
     conn.close()
