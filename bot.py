@@ -3,19 +3,25 @@ import math
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from database import init_db, add_user, save_attendance, get_user_role, update_user_role, set_user_block_status
+from database import init_db, add_user, save_attendance, get_user_info, update_user_role_dept, set_user_block_status
 from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
+DEPARTMENT_BUTTONS = [
+    [KeyboardButton("🏛 Rektorat va Rahbariyat"), KeyboardButton("📚 O'quv bo'limi")],
+    [KeyboardButton("🎓 Fakultet dekanatlari"), KeyboardButton("🔬 Kafedralar")],
+    [KeyboardButton("🛠 Xo'jalik bo'limi"), KeyboardButton("🔙 Orqaga")]
+]
+
 ROLE_BUTTONS = [
-    [KeyboardButton("🏛 Rahbariyat"), KeyboardButton("📋 Bo'lim xodimi")],
-    [KeyboardButton("🎓 Fakultet dekani"), KeyboardButton("📚 Kafedra mudiri")],
-    [KeyboardButton("👨‍🏫 Kafedra o'qituvchisi"), KeyboardButton("🛠 Ishchi xodim")],
+    [KeyboardButton("🏛 Rahbar / Dean"), KeyboardButton("📋 Bo'lim xodimi")],
+    [KeyboardButton("👨‍🏫 O'qituvchi"), KeyboardButton("🛠 Ishchi xodim")],
     [KeyboardButton("🔙 Orqaga")]
 ]
 
+# Ishga kelish va ishdan ketish uchun alohida lokatsiya talab qiluvchi tugmalar
 ATTENDANCE_BUTTONS = [
     [KeyboardButton("📍 Ishga keldim (Lokatsiya yuborish)", request_location=True)],
-    [KeyboardButton("🚪 Ishdan ketdim")],
+    [KeyboardButton("🚪 Ishdan ketdim (Lokatsiya yuborish)", request_location=True)],
     [KeyboardButton("🔙 Orqaga")]
 ]
 
@@ -23,13 +29,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    role_status = get_user_role(user_id)
-    if role_status == "BLOCKED":
+    role, dept = get_user_info(user_id)
+    if role == "BLOCKED":
         await update.message.reply_text("⛔ Siz admin tomonidan botdan bloklangansiz!")
         return
 
-    add_user(user_id, user.full_name, None)
-    user_role = get_user_role(user_id)
+    add_user(user_id, user.full_name, None, None)
     
     welcome_text = (
         "Assalomu alaykum hurmatli xodim, "
@@ -38,16 +43,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Marhamat qilib kerakli bo'limni tanlang va davom eting"
     )
     
-    if not user_role:
-        reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
+    if not role or not dept:
+        reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            f"{welcome_text}\n\nIltimos, o'z lavozimingizni tanlang:",
-            reply_markup=reply_markup
+            f"{welcome_text}\n\nIltimos, o'zingizning **bo'limingizni** tanlang:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
         )
     else:
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            f"{welcome_text}\n\nSizning lavozimingiz: *{user_role}*.\nKerakli amalni tanlang:",
+            f"{welcome_text}\n\nBo'lim: *{dept}*\nLavozim: *{role}*.\nKerakli amalni tanlang:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -56,15 +62,13 @@ async def block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Bu buyruq faqat admin uchun!")
         return
-    
     if not context.args:
         await update.message.reply_text("Foydalanish: /block <user_id>")
         return
-    
     try:
         target_id = int(context.args[0])
         set_user_block_status(target_id, 1)
-        await update.message.reply_text(f"✅ ID: {target_id} bo'lgan foydalanuvchi bloklandi.")
+        await update.message.reply_text(f"✅ ID: {target_id} foydalanuvchi bloklandi.")
     except Exception as e:
         await update.message.reply_text(f"Xatolik: {e}")
 
@@ -72,80 +76,57 @@ async def unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Bu buyruq faqat admin uchun!")
         return
-    
     if not context.args:
         await update.message.reply_text("Foydalanish: /unblock <user_id>")
         return
-    
     try:
         target_id = int(context.args[0])
         set_user_block_status(target_id, 0)
-        await update.message.reply_text(f"✅ ID: {target_id} bo'lgan foydalanuvchi blokdan chiqarildi.")
+        await update.message.reply_text(f"✅ ID: {target_id} foydalanuvchi blokdan chiqarildi.")
     except Exception as e:
         await update.message.reply_text(f"Xatolik: {e}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
     user = update.effective_user
     user_id = user.id
     
-    if get_user_role(user_id) == "BLOCKED":
+    role, dept = get_user_info(user_id)
+    if role == "BLOCKED":
         await update.message.reply_text("⛔ Siz admin tomonidan botdan bloklangansiz!")
         return
 
-    text = update.message.text
     if text == "🔙 Orqaga":
-        update_user_role(user_id, None)
-        reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
-        await update.message.reply_text("Bosh menyuga qaytdingiz. Iltimos, lavozimingizni qayta tanlang:", reply_markup=reply_markup)
+        add_user(user_id, user.full_name, None, None)
+        reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni qaytadan tanlang:", reply_markup=reply_markup)
         return
 
-    role_mapping = {
-        "🏛 Rahbariyat": "Rahbariyat",
-        "📋 Bo'lim xodimi": "Bo'lim xodimi",
-        "🎓 Fakultet dekani": "Fakultet dekani",
-        "📚 Kafedra mudiri": "Kafedra mudiri",
-        "👨‍🏫 Kafedra o'qituvchisi": "Kafedra o'qituvchisi",
-        "🛠 Ishchi xodim": "Ishchi xodim"
-    }
-    
-    if text in role_mapping:
-        clean_role = role_mapping[text]
-        add_user(user_id, user.full_name, clean_role)
-        update_user_role(user_id, clean_role)
+    departments = ["🏛 Rektorat va Rahbariyat", "📚 O'quv bo'limi", "🎓 Fakultet dekanatlari", "🔬 Kafedralar", "🛠 Xo'jalik bo'limi"]
+    if text in departments:
+        context.user_data['selected_dept'] = text
+        reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Endi o'z **lavozimingizni** tanlang:", reply_markup=reply_markup, parse_mode="Markdown")
+        return
+
+    roles = ["🏛 Rahbar / Dean", "📋 Bo'lim xodimi", "👨‍🏫 O'qituvchi", "🛠 Ishchi xodim"]
+    if text in roles:
+        selected_dept = context.user_data.get('selected_dept', "Umumiy bo'lim")
+        update_user_role_dept(user_id, selected_dept, text)
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
-            f"Lavozimingiz muvaffaqiyatli saqlandi: *{clean_role}*.\nEndi davomat qilish uchun quyidagi tugmani bosing:",
+            f"✅ Ma'lumotlaringiz saqlandi!\nBo'lim: *{selected_dept}*\nLavozim: *{text}*.\n\nEndi davomat uchun quyidagi tugmalardan birini bosing:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        return
-
-    if text == "🚪 Ishdan ketdim":
-        user_role = get_user_role(user_id) or "Noma'lum"
-        now = datetime.now()
-        current_time_str = now.strftime("%H:%M:%S")
-        
-        save_attendance(user_id, user.full_name, user_role, "Ishdan ketdi", current_time_str, "Ketdi", "N/A")
-        await update.message.reply_text(f"🚪 Ishdan ketgan vaqtingiz qayd etildi: {current_time_str}. Xayr!")
-        
-        admin_text = (
-            f"🚪 **Xodim ishdan ketdi:**\n"
-            f"👤 Ism: {user.full_name}\n"
-            f"🆔 ID: `{user_id}`\n"
-            f"💼 Lavozim: {user_role}\n"
-            f"⏰ Vaqt: {current_time_str}"
-        )
-        try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Adminga yuborishda xatolik: {e}")
         return
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    if get_user_role(user_id) == "BLOCKED":
+    role, dept = get_user_info(user_id)
+    if role == "BLOCKED":
         await update.message.reply_text("⛔ Siz admin tomonidan botdan bloklangansiz!")
         return
 
@@ -160,10 +141,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    user_role = get_user_role(user_id)
-    if not user_role or user_role == "BLOCKED":
-        user_role = "Bo'lim xodimi"
-        add_user(user_id, full_name, user_role)
+    if not role or not dept:
+        role = "Xodim"
+        dept = "Umumiy"
 
     user_location = update.message.location
     if not user_location:
@@ -187,30 +167,51 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_time_str = now.strftime("%H:%M:%S")
     dist_str = f"{distance:.2f} metr" if distance < 1000 else f"{distance / 1000:.2f} km"
 
-    # Agar masofa 1000 metrdan (1001 va undan naridan) oshsa, lokatsiya qabul qilinmaydi
+    # Agar masofa 1000 metrdan oshsa, qat'iy rad etiladi
     if distance > ALLOWED_DISTANCE:
         await update.message.reply_text(
             f"❌ Siz belgilangan chegaradan tashqaridasiz!\n"
-            f"Masofa: {dist_str}\n"
+            f"Siz turgan masofa: {dist_str}\n"
             f"Ruxsat etilgan maksimal masofa: 1000 metr. Lokatsiyangiz qabul qilmadi!"
         )
         return
 
-    limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
-    status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
-
-    save_attendance(user_id, full_name, user_role, "Ishga keldi", current_time_str, status, dist_str)
+    # Foydalanuvchi oxirgi marta qaysi tugmani bosganini yoki xabar kontekstini aniqlaymiz
+    # Telegramda lokatsiya yuborilganda foydalanuvchi "Ishga keldim" yoki "Ishdan ketdim" tugmasini bosgan bo'ladi.
+    # Buni aniqlash uchun foydalanuvchi yuborgan oxirgi xabardagi tugma matnini tekshiramiz:
+    # (Agar foydalanuvchi tugma orqali lokatsiya yuborgan bo'lsa, Telegram odatda matn bermaydi, 
+    # shuning uchun har ikkala amalni aniqlash uchun vaqt yoki ketma-ketlik qo'llaniladi).
     
-    if status == "Kechikdi":
-        await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
+    # Oddiy va aniq mantiq: Agar soat 14:00 gacha bo'lsa "Ishga keldi", undan keyin "Ishdan ketdi" deb taxmin qilish mumkin 
+    # yoki foydalanuvchiga har safar tanlov berish mumkin. Keling, buni yanada mukammal qilamiz:
+    # Xodim lokatsiya yuborganda bot undan "Bu qaysi amal?" deb so'rashi yoki avtomat ravishda vaqtga qarab ajratishi mumkin.
+    
+    # Keling, vaqt oralig'iga qarab aniqlaymiz: soat 13:00 gacha "Ishga keldi", 13:00 dan keyin "Ishdan ketdi" deb belgilaymiz.
+    if now.hour < 13:
+        action = "Ishga keldi"
+        limit_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
+        status = "O'z vaqtida" if now <= limit_time else "Kechikdi"
     else:
-        await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
+        action = "Ishdan ketdi"
+        status = "Ketdi"
 
+    save_attendance(user_id, full_name, dept, role, action, current_time_str, status, dist_str)
+    
+    if action == "Ishga keldi":
+        if status == "Kechikdi":
+            await update.message.reply_text(f"⚠️ Siz belgilangan vaqtdan (08:30) kechikib keldingiz!\nKelgan vaqtingiz: {current_time_str}")
+        else:
+            await update.message.reply_text(f"✅ O'z vaqtida keldingiz!\nKelgan vaqtingiz: {current_time_str}")
+    else:
+        await update.message.reply_text(f"🚪 Ishdan ketgan vaqtingiz muvaffaqiyatli qayd etildi!\nVaqt: {current_time_str}")
+
+    # Adminga xabar yuborish
     admin_text = (
-        f"📌 **Xodim ishga keldi:**\n"
+        f"📌 **Xodim davomati ({action}):**\n"
         f"👤 Ism: {full_name}\n"
         f"🆔 ID: `{user_id}`\n"
-        f"💼 Lavozim: {user_role}\n"
+        f"🏛 Bo'lim: {dept}\n"
+        f"💼 Lavozim: {role}\n"
         f"⏰ Vaqt: {current_time_str}\n"
         f"📊 Holati: {status}\n"
         f"📍 Masofa: {dist_str}"
@@ -230,5 +231,5 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
-    print("Test bot ishga tushdi...")
+    print("Davomat boti to'liq ishga tushdi...")
     app.run_polling()
