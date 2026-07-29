@@ -3,10 +3,9 @@ import math
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-from database import init_db, add_user, save_attendance, get_user_info, update_user_role_dept, set_user_block_status
+from database import init_db, add_user, save_attendance, get_user_info, update_user_role_dept, set_user_block_status, get_total_users_count, get_all_users_list
 from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
-# Asosiy bo'limlar menyusi (Ikonkalar bilan)
 DEPARTMENT_BUTTONS = [
     [KeyboardButton("🏛 Rahbariyat"), KeyboardButton("📋 Bo'lim boshlig'i")],
     [KeyboardButton("🎓 Fakultet dekanlari"), KeyboardButton("👨‍🏫 Professor-o'qituvchilar")],
@@ -14,7 +13,6 @@ DEPARTMENT_BUTTONS = [
     [KeyboardButton("🔙 Orqaga")]
 ]
 
-# 1. Rahbariyat ichidagi lavozimlar
 RAHBARIYAT_BUTTONS = [
     [KeyboardButton("👤 Rektor"), KeyboardButton("👨‍💼 Ma'naviy va ma'rifiyi ishlar prorektori")],
     [KeyboardButton("🏗 Xo'jalik ishlar prorektori"), KeyboardButton("📚 O'quv ishlar prorektori")],
@@ -24,7 +22,6 @@ RAHBARIYAT_BUTTONS = [
     [KeyboardButton("助手 Rektor yordamchisi"), KeyboardButton("🔙 Orqaga")]
 ]
 
-# 2. Bo'lim boshlig'i ichidagi lavozimlar
 BOLIM_BOSHLIGI_BUTTONS = [
     [KeyboardButton("🔬 Ilmiy bo'lim boshlig'i"), KeyboardButton("📚 O'quv bo'lim boshlig'i")],
     [KeyboardButton("📜 Magistratura bo'lim boshlig'i"), KeyboardButton("🌟 Ma'naviyat bo'lim boshlig'i")],
@@ -34,7 +31,6 @@ BOLIM_BOSHLIGI_BUTTONS = [
     [KeyboardButton("🗂 Registrator ofisi bo'lim boshlig'i"), KeyboardButton("🔙 Orqaga")]
 ]
 
-# 3. Fakultet dekanlari ichidagi lavozimlar
 FAKULTET_BUTTONS = [
     [KeyboardButton("🎨 San'at va sport fakulteti dekani"), KeyboardButton("📐 Aniq fanlar va muhandislik fakulteti dekani")],
     [KeyboardButton("📖 Boshlang‘ich va texnologik ta’lim fakulteti dekani"), KeyboardButton("🌿 Tabiiy fanlar va iqtisodiyot fakulteti dekani")],
@@ -42,7 +38,6 @@ FAKULTET_BUTTONS = [
     [KeyboardButton("🔙 Orqaga")]
 ]
 
-# 4. Professor-o'qituvchilar ichidagi lavozimlar
 PROFESSOR_OTUVCHILAR_BUTTONS = [
     [KeyboardButton("🎓 Professor"), KeyboardButton("🏅 Dotsent")],
     [KeyboardButton("🎖 Professor v.b."), KeyboardButton("🏅 Dotsent v.b.")],
@@ -88,6 +83,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+
+# --- STATISTIKA BUYRUQLARI ---
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("Bu buyruq faqat admin uchun!")
+        return
+    
+    total = get_total_users_count()
+    await update.message.reply_text(
+        f"📊 **Bot statistikasi:**\n\n"
+        f"👥 Jami ro'yxatdan o'tgan foydalanuvchilar: *{total} ta*",
+        parse_mode="Markdown"
+    )
+
+async def users_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("Bu buyruq faqat admin uchun!")
+        return
+    
+    users = get_all_users_list()
+    if not users:
+        await update.message.reply_text("Hozircha bazada foydalanuvchilar yo'q.")
+        return
+    
+    text = "📋 **Foydalanuvchilar ro'yxati:**\n\n"
+    for u in users:
+        uid, name, dept, role = u
+        text += f"👤 {name} (ID: `{uid}`)\n   Bo'lim: {dept} | Lavozim: {role}\n\n"
+    
+    # Xabar juda uzun bo'lib ketsa bo'lib yuborish
+    if len(text) > 4000:
+        for i in range(0, len(text), 4000):
+            await update.message.reply_text(text[i:i+4000], parse_mode="Markdown")
+    else:
+        await update.message.reply_text(text, parse_mode="Markdown")
 
 async def block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -138,7 +168,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni qaytadan tanlang:", reply_markup=reply_markup)
         return
 
-    # Asosiy bo'limlar
     if text == "🏛 Rahbariyat":
         context.user_data['selected_dept'] = text
         reply_markup = ReplyKeyboardMarkup(RAHBARIYAT_BUTTONS, resize_keyboard=True)
@@ -185,7 +214,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Barcha ichki lavozimlar ro'yxati
     all_roles = [
         "👤 Rektor", "👨‍💼 Ma'naviy va ma'rifiyi ishlar prorektori", "🏗 Xo'jalik ishlar prorektori", "📚 O'quv ishlar prorektori",
         "🔬 Ilmiy ishlar va innovatsiyalar prorektori", "🌐 Xalqaro aloqalar prorektori", "💡 Yoshlar bilan ishlash bo'yicha rektor maslahatchisi",
@@ -302,6 +330,8 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("users", users_list_command))
     app.add_handler(CommandHandler("block", block_user))
     app.add_handler(CommandHandler("unblock", unblock_user))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
