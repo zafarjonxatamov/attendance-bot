@@ -6,15 +6,40 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from database import init_db, add_user, save_attendance, get_user_info, update_user_role_dept, set_user_block_status
 from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
+# Asosiy bo'limlar menyusi (Talab bo'yicha o'zgartirildi)
 DEPARTMENT_BUTTONS = [
-    [KeyboardButton("🏛 Rektorat va Rahbariyat"), KeyboardButton("📚 O'quv bo'limi")],
-    [KeyboardButton("🎓 Fakultet dekanatlari"), KeyboardButton("🔬 Kafedralar")],
+    [KeyboardButton("🏛 Rahbariyat"), KeyboardButton("📋 Bo'lim boshlig'i")],
+    [KeyboardButton("🎓 Fakultet dekanlari"), KeyboardButton("📌 Kafedra mudiri")],
     [KeyboardButton("🛠 Xo'jalik bo'limi"), KeyboardButton("🔙 Orqaga")]
 ]
 
-ROLE_BUTTONS = [
-    [KeyboardButton("🏛 Rahbar / Dean"), KeyboardButton("📋 Bo'lim xodimi")],
-    [KeyboardButton("👨‍🏫 O'qituvchi"), KeyboardButton("🛠 Ishchi xodim")],
+# 1. Rahbariyat ichidagi lavozimlar
+RAHBARIYAT_BUTTONS = [
+    [KeyboardButton("Rektor"), KeyboardButton("Ma'naviy va ma'rifiyi ishlar prorektori")],
+    [KeyboardButton("Xo'jalik ishlar prorektori"), KeyboardButton("O'quv ishlar prorektori")],
+    [KeyboardButton("Ilmiy ishlar va innovatsiyalar prorektori"), KeyboardButton("Xalqaro aloqalar prorektori")],
+    [KeyboardButton("Yoshlar bilan ishlash bo'yicha rektor maslahatchisi"), KeyboardButton("Devonxona mudiri")],
+    [KeyboardButton("Ichki nazorat va monitoring mudiri"), KeyboardButton("Bosh hisobchi")],
+    [KeyboardButton("Rektor yordamchisi")],
+    [KeyboardButton("🔙 Orqaga")]
+]
+
+# 2. Bo'lim boshlig'i ichidagi lavozimlar
+BOLIM_BOSHLIGI_BUTTONS = [
+    [KeyboardButton("Ilmiy bo'lim boshlig'i"), KeyboardButton("O'quv bo'lim boshlig'i")],
+    [KeyboardButton("Magistratura bo'lim boshlig'i"), KeyboardButton("Ma'naviyat bo'lim boshlig'i")],
+    [KeyboardButton("Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i"), KeyboardButton("Xodimlar bo'lim boshlig'i")],
+    [KeyboardButton("Korrupsiya qarshi bo'lim boshlig'i"), KeyboardButton("Xalqaro aloqalar bo'lim boshlig'i")],
+    [KeyboardButton("Xo'jalik ishlari bo'lim boshlig'i"), KeyboardButton("Ta’lim jarayonini tashkil etish bo‘limi boshlig'i")],
+    [KeyboardButton("Registrator ofisi bo'lim boshlig'i")],
+    [KeyboardButton("🔙 Orqaga")]
+]
+
+# 3. Fakultet dekanlari ichidagi lavozimlar
+FAKULTET_BUTTONS = [
+    [KeyboardButton("San'at va sport fakulteti dekani"), KeyboardButton("Aniq fanlar va muhandislik fakulteti dekani")],
+    [KeyboardButton("Boshlang‘ich va texnologik ta’lim fakulteti dekani"), KeyboardButton("Tabiiy fanlar va iqtisodiyot fakulteti dekani")],
+    [KeyboardButton("Gumanitar fanlar va tillar fakultetida dekani"), KeyboardButton("Pedagogika va psixologiya fakulteti dekani")],
     [KeyboardButton("🔙 Orqaga")]
 ]
 
@@ -96,21 +121,75 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🔙 Orqaga":
-        add_user(user_id, user.full_name, None, None)
-        reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
-        await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni qaytadan tanlang:", reply_markup=reply_markup)
+        # Qaysi darajada ekanligiga qarab orqaga qaytarish
+        if 'selected_dept' in context.user_data:
+            context.user_data.pop('selected_dept', None)
+            reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
+            await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni tanlang:", reply_markup=reply_markup)
+        else:
+            add_user(user_id, user.full_name, None, None)
+            reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
+            await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni qaytadan tanlang:", reply_markup=reply_markup)
         return
 
-    departments = ["🏛 Rektorat va Rahbariyat", "📚 O'quv bo'limi", "🎓 Fakultet dekanatlari", "🔬 Kafedralar", "🛠 Xo'jalik bo'limi"]
-    if text in departments:
+    # Asosiy bo'limlar bosilganda
+    if text == "🏛 Rahbariyat":
         context.user_data['selected_dept'] = text
-        reply_markup = ReplyKeyboardMarkup(ROLE_BUTTONS, resize_keyboard=True)
-        await update.message.reply_text("Endi o'z **lavozimingizni** tanlang:", reply_markup=reply_markup, parse_mode="Markdown")
+        reply_markup = ReplyKeyboardMarkup(RAHBARIYAT_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Rahbariyat lavozimini tanlang:", reply_markup=reply_markup)
         return
 
-    roles = ["🏛 Rahbar / Dean", "📋 Bo'lim xodimi", "👨‍🏫 O'qituvchi", "🛠 Ishchi xodim"]
-    if text in roles:
-        selected_dept = context.user_data.get('selected_dept', "Umumiy bo'lim")
+    if text == "📋 Bo'lim boshlig'i":
+        context.user_data['selected_dept'] = text
+        reply_markup = ReplyKeyboardMarkup(BOLIM_BOSHLIGI_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Bo'lim boshlig'i yo'nalishini tanlang:", reply_markup=reply_markup)
+        return
+
+    if text == "🎓 Fakultet dekanlari":
+        context.user_data['selected_dept'] = text
+        reply_markup = ReplyKeyboardMarkup(FAKULTET_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Fakultetni tanlang:", reply_markup=reply_markup)
+        return
+
+    if text == "📌 Kafedra mudiri":
+        # Kafedralar ichida boshqa tugma yo'q, to'g'ridan-to'g'ri lavozim sifatida saqlaymiz
+        selected_dept = "Kafedralar"
+        update_user_role_dept(user_id, selected_dept, text)
+        reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text(
+            f"✅ Ma'lumotlaringiz saqlandi!\nBo'lim: *{selected_dept}*\nLavozim: *{text}*.\n\nEndi davomat uchun quyidagi tugmalardan birini bosing:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        return
+
+    if text == "🛠 Xo'jalik bo'limi":
+        # Xo'jalik bo'limi ichida ichki bo'limlar olib tashlandi, to'g'ridan-to'g'ri saqlanadi
+        selected_dept = text
+        update_user_role_dept(user_id, selected_dept, "Xodim")
+        reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text(
+            f"✅ Ma'lumotlaringiz saqlandi!\nBo'lim: *{selected_dept}*.\n\nEndi davomat uchun quyidagi tugmalardan birini bosing:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        return
+
+    # Ichki lavozimlar ro'yxati (Rahbariyat, Bo'lim boshlig'i, Fakultet dekanlari ichidagilar)
+    all_roles = [
+        "Rektor", "Ma'naviy va ma'rifiyi ishlar prorektori", "Xo'jalik ishlar prorektori", "O'quv ishlar prorektori",
+        "Ilmiy ishlar va innovatsiyalar prorektori", "Xalqaro aloqalar prorektori", "Yoshlar bilan ishlash bo'yicha rektor maslahatchisi",
+        "Devonxona mudiri", "Ichki nazorat va monitoring mudiri", "Bosh hisobchi", "Rektor yordamchisi",
+        "Ilmiy bo'lim boshlig'i", "O'quv bo'lim boshlig'i", "Magistratura bo'lim boshlig'i", "Ma'naviyat bo'lim boshlig'i",
+        "Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i", "Xodimlar bo'lim boshlig'i", "Korrupsiya qarshi bo'lim boshlig'i",
+        "Xalqaro aloqalar bo'lim boshlig'i", "Xo'jalik ishlari bo'lim boshlig'i", "Ta’lim jarayonini tashkil etish bo‘limi boshlig'i",
+        "Registrator ofisi bo'lim boshlig'i",
+        "San'at va sport fakulteti dekani", "Aniq fanlar va muhandislik fakulteti dekani", "Boshlang‘ich va texnologik ta’lim fakulteti dekani",
+        "Tabiiy fanlar va iqtisodiyot fakulteti dekani", "Gumanitar fanlar va tillar fakultetida dekani", "Pedagogika va psixologiya fakulteti dekani"
+    ]
+
+    if text in all_roles:
+        selected_dept = context.user_data.get('selected_dept', "Rahbariyat")
         update_user_role_dept(user_id, selected_dept, text)
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
         await update.message.reply_text(
