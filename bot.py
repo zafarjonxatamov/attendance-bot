@@ -6,41 +6,48 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from database import init_db, add_user, save_attendance, get_user_info, update_user_role_dept, set_user_block_status
 from config import TELEGRAM_TOKEN, ADMIN_ID, OFFICE_LAT, OFFICE_LON, ALLOWED_DISTANCE
 
-# Asosiy bo'limlar menyusi (Talab bo'yicha o'zgartirildi)
+# Asosiy bo'limlar menyusi (Ikonkalar bilan)
 DEPARTMENT_BUTTONS = [
     [KeyboardButton("🏛 Rahbariyat"), KeyboardButton("📋 Bo'lim boshlig'i")],
-    [KeyboardButton("🎓 Fakultet dekanlari"), KeyboardButton("📌 Kafedra mudiri")],
-    [KeyboardButton("🛠 Xo'jalik bo'limi"), KeyboardButton("🔙 Orqaga")]
+    [KeyboardButton("🎓 Fakultet dekanlari"), KeyboardButton("👨‍🏫 Professor-o'qituvchilar")],
+    [KeyboardButton("📌 Kafedra mudiri"), KeyboardButton("🛠 Xo'jalik bo'limi")],
+    [KeyboardButton("🔙 Orqaga")]
 ]
 
 # 1. Rahbariyat ichidagi lavozimlar
 RAHBARIYAT_BUTTONS = [
-    [KeyboardButton("Rektor"), KeyboardButton("Ma'naviy va ma'rifiyi ishlar prorektori")],
-    [KeyboardButton("Xo'jalik ishlar prorektori"), KeyboardButton("O'quv ishlar prorektori")],
-    [KeyboardButton("Ilmiy ishlar va innovatsiyalar prorektori"), KeyboardButton("Xalqaro aloqalar prorektori")],
-    [KeyboardButton("Yoshlar bilan ishlash bo'yicha rektor maslahatchisi"), KeyboardButton("Devonxona mudiri")],
-    [KeyboardButton("Ichki nazorat va monitoring mudiri"), KeyboardButton("Bosh hisobchi")],
-    [KeyboardButton("Rektor yordamchisi")],
-    [KeyboardButton("🔙 Orqaga")]
+    [KeyboardButton("👤 Rektor"), KeyboardButton("👨‍💼 Ma'naviy va ma'rifiyi ishlar prorektori")],
+    [KeyboardButton("🏗 Xo'jalik ishlar prorektori"), KeyboardButton("📚 O'quv ishlar prorektori")],
+    [KeyboardButton("🔬 Ilmiy ishlar va innovatsiyalar prorektori"), KeyboardButton("🌐 Xalqaro aloqalar prorektori")],
+    [KeyboardButton("💡 Yoshlar bilan ishlash bo'yicha rektor maslahatchisi"), KeyboardButton("📁 Devonxona mudiri")],
+    [KeyboardButton("🔍 Ichki nazorat va monitoring mudiri"), KeyboardButton("💰 Bosh hisobchi")],
+    [KeyboardButton("助手 Rektor yordamchisi"), KeyboardButton("🔙 Orqaga")]
 ]
 
 # 2. Bo'lim boshlig'i ichidagi lavozimlar
 BOLIM_BOSHLIGI_BUTTONS = [
-    [KeyboardButton("Ilmiy bo'lim boshlig'i"), KeyboardButton("O'quv bo'lim boshlig'i")],
-    [KeyboardButton("Magistratura bo'lim boshlig'i"), KeyboardButton("Ma'naviyat bo'lim boshlig'i")],
-    [KeyboardButton("Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i"), KeyboardButton("Xodimlar bo'lim boshlig'i")],
-    [KeyboardButton("Korrupsiya qarshi bo'lim boshlig'i"), KeyboardButton("Xalqaro aloqalar bo'lim boshlig'i")],
-    [KeyboardButton("Xo'jalik ishlari bo'lim boshlig'i"), KeyboardButton("Ta’lim jarayonini tashkil etish bo‘limi boshlig'i")],
-    [KeyboardButton("Registrator ofisi bo'lim boshlig'i")],
-    [KeyboardButton("🔙 Orqaga")]
+    [KeyboardButton("🔬 Ilmiy bo'lim boshlig'i"), KeyboardButton("📚 O'quv bo'lim boshlig'i")],
+    [KeyboardButton("📜 Magistratura bo'lim boshlig'i"), KeyboardButton("🌟 Ma'naviyat bo'lim boshlig'i")],
+    [KeyboardButton("🗣 Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i"), KeyboardButton("👥 Xodimlar bo'lim boshlig'i")],
+    [KeyboardButton("🛡 Korrupsiya qarshi bo'lim boshlig'i"), KeyboardButton("🌍 Xalqaro aloqalar bo'lim boshlig'i")],
+    [KeyboardButton("🛠 Xo'jalik ishlari bo'lim boshlig'i"), KeyboardButton("📊 Ta’lim jarayonini tashkil etish bo‘limi boshlig'i")],
+    [KeyboardButton("🗂 Registrator ofisi bo'lim boshlig'i"), KeyboardButton("🔙 Orqaga")]
 ]
 
 # 3. Fakultet dekanlari ichidagi lavozimlar
 FAKULTET_BUTTONS = [
-    [KeyboardButton("San'at va sport fakulteti dekani"), KeyboardButton("Aniq fanlar va muhandislik fakulteti dekani")],
-    [KeyboardButton("Boshlang‘ich va texnologik ta’lim fakulteti dekani"), KeyboardButton("Tabiiy fanlar va iqtisodiyot fakulteti dekani")],
-    [KeyboardButton("Gumanitar fanlar va tillar fakultetida dekani"), KeyboardButton("Pedagogika va psixologiya fakulteti dekani")],
+    [KeyboardButton("🎨 San'at va sport fakulteti dekani"), KeyboardButton("📐 Aniq fanlar va muhandislik fakulteti dekani")],
+    [KeyboardButton("📖 Boshlang‘ich va texnologik ta’lim fakulteti dekani"), KeyboardButton("🌿 Tabiiy fanlar va iqtisodiyot fakulteti dekani")],
+    [KeyboardButton("🗣 Gumanitar fanlar va tillar fakultetida dekani"), KeyboardButton("🧠 Pedagogika va psixologiya fakulteti dekani")],
     [KeyboardButton("🔙 Orqaga")]
+]
+
+# 4. Professor-o'qituvchilar ichidagi lavozimlar
+PROFESSOR_OTUVCHILAR_BUTTONS = [
+    [KeyboardButton("🎓 Professor"), KeyboardButton("🏅 Dotsent")],
+    [KeyboardButton("🎖 Professor v.b."), KeyboardButton("🏅 Dotsent v.b.")],
+    [KeyboardButton("📖 Katta o'qituvchi"), KeyboardButton("✍️ Assistent o'qituvchi")],
+    [KeyboardButton("📌 Stajyor o'qituvchi"), KeyboardButton("🔙 Orqaga")]
 ]
 
 ATTENDANCE_BUTTONS = [
@@ -121,7 +128,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🔙 Orqaga":
-        # Qaysi darajada ekanligiga qarab orqaga qaytarish
         if 'selected_dept' in context.user_data:
             context.user_data.pop('selected_dept', None)
             reply_markup = ReplyKeyboardMarkup(DEPARTMENT_BUTTONS, resize_keyboard=True)
@@ -132,7 +138,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Bosh menyuga qaytdingiz. Bo'limingizni qaytadan tanlang:", reply_markup=reply_markup)
         return
 
-    # Asosiy bo'limlar bosilganda
+    # Asosiy bo'limlar
     if text == "🏛 Rahbariyat":
         context.user_data['selected_dept'] = text
         reply_markup = ReplyKeyboardMarkup(RAHBARIYAT_BUTTONS, resize_keyboard=True)
@@ -151,8 +157,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Fakultetni tanlang:", reply_markup=reply_markup)
         return
 
+    if text == "👨‍🏫 Professor-o'qituvchilar":
+        context.user_data['selected_dept'] = text
+        reply_markup = ReplyKeyboardMarkup(PROFESSOR_OTUVCHILAR_BUTTONS, resize_keyboard=True)
+        await update.message.reply_text("Professor-o'qituvchilar lavozimini tanlang:", reply_markup=reply_markup)
+        return
+
     if text == "📌 Kafedra mudiri":
-        # Kafedralar ichida boshqa tugma yo'q, to'g'ridan-to'g'ri lavozim sifatida saqlaymiz
         selected_dept = "Kafedralar"
         update_user_role_dept(user_id, selected_dept, text)
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
@@ -164,7 +175,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🛠 Xo'jalik bo'limi":
-        # Xo'jalik bo'limi ichida ichki bo'limlar olib tashlandi, to'g'ridan-to'g'ri saqlanadi
         selected_dept = text
         update_user_role_dept(user_id, selected_dept, "Xodim")
         reply_markup = ReplyKeyboardMarkup(ATTENDANCE_BUTTONS, resize_keyboard=True)
@@ -175,17 +185,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Ichki lavozimlar ro'yxati (Rahbariyat, Bo'lim boshlig'i, Fakultet dekanlari ichidagilar)
+    # Barcha ichki lavozimlar ro'yxati
     all_roles = [
-        "Rektor", "Ma'naviy va ma'rifiyi ishlar prorektori", "Xo'jalik ishlar prorektori", "O'quv ishlar prorektori",
-        "Ilmiy ishlar va innovatsiyalar prorektori", "Xalqaro aloqalar prorektori", "Yoshlar bilan ishlash bo'yicha rektor maslahatchisi",
-        "Devonxona mudiri", "Ichki nazorat va monitoring mudiri", "Bosh hisobchi", "Rektor yordamchisi",
-        "Ilmiy bo'lim boshlig'i", "O'quv bo'lim boshlig'i", "Magistratura bo'lim boshlig'i", "Ma'naviyat bo'lim boshlig'i",
-        "Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i", "Xodimlar bo'lim boshlig'i", "Korrupsiya qarshi bo'lim boshlig'i",
-        "Xalqaro aloqalar bo'lim boshlig'i", "Xo'jalik ishlari bo'lim boshlig'i", "Ta’lim jarayonini tashkil etish bo‘limi boshlig'i",
-        "Registrator ofisi bo'lim boshlig'i",
-        "San'at va sport fakulteti dekani", "Aniq fanlar va muhandislik fakulteti dekani", "Boshlang‘ich va texnologik ta’lim fakulteti dekani",
-        "Tabiiy fanlar va iqtisodiyot fakulteti dekani", "Gumanitar fanlar va tillar fakultetida dekani", "Pedagogika va psixologiya fakulteti dekani"
+        "👤 Rektor", "👨‍💼 Ma'naviy va ma'rifiyi ishlar prorektori", "🏗 Xo'jalik ishlar prorektori", "📚 O'quv ishlar prorektori",
+        "🔬 Ilmiy ishlar va innovatsiyalar prorektori", "🌐 Xalqaro aloqalar prorektori", "💡 Yoshlar bilan ishlash bo'yicha rektor maslahatchisi",
+        "📁 Devonxona mudiri", "🔍 Ichki nazorat va monitoring mudiri", "💰 Bosh hisobchi", "助手 Rektor yordamchisi",
+        "🔬 Ilmiy bo'lim boshlig'i", "📚 O'quv bo'lim boshlig'i", "📜 Magistratura bo'lim boshlig'i", "🌟 Ma'naviyat bo'lim boshlig'i",
+        "🗣 Fuqarolar murojatlari bilan ishlash bo'lim boshlig'i", "👥 Xodimlar bo'lim boshlig'i", "🛡 Korrupsiya qarshi bo'lim boshlig'i",
+        "🌍 Xalqaro aloqalar bo'lim boshlig'i", "🛠 Xo'jalik ishlari bo'lim boshlig'i", "📊 Ta’lim jarayonini tashkil etish bo‘limi boshlig'i",
+        "🗂 Registrator ofisi bo'lim boshlig'i",
+        "🎨 San'at va sport fakulteti dekani", "📐 Aniq fanlar va muhandislik fakulteti dekani", "📖 Boshlang‘ich va texnologik ta’lim fakulteti dekani",
+        "🌿 Tabiiy fanlar va iqtisodiyot fakulteti dekani", "🗣 Gumanitar fanlar va tillar fakultetida dekani", "🧠 Pedagogika va psixologiya fakulteti dekani",
+        "🎓 Professor", "🏅 Dotsent", "🎖 Professor v.b.", "🏅 Dotsent v.b.", "📖 Katta o'qituvchi", "✍️ Assistent o'qituvchi", "📌 Stajyor o'qituvchi"
     ]
 
     if text in all_roles:
